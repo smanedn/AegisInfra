@@ -6,6 +6,7 @@ import os
 import shutil
 import socket
 import stat
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from models import AuditReport, Finding, Severity
+from remediator import get_fixable_findings, run_remediation
 from reporter import generate_report
 from scanner import run_docker_audit, run_network_scan, run_proxmox_audit
 
@@ -35,6 +37,14 @@ _SEVERITY_STYLES: dict[Severity, str] = {
     Severity.MEDIUM: "bold yellow",
     Severity.LOW: "bold blue",
     Severity.INFO: "dim white",
+}
+
+_SEVERITY_BADGES: dict[Severity, str] = {
+    Severity.CRITICAL: "[bold white on red] CRITICAL [/bold white on red]",
+    Severity.HIGH: "[bold white on dark_orange]   HIGH   [/bold white on dark_orange]",
+    Severity.MEDIUM: "[bold black on yellow]  MEDIUM  [/bold black on yellow]",
+    Severity.LOW: "[bold white on blue]   LOW    [/bold white on blue]",
+    Severity.INFO: "[bold white on bright_black]   INFO   [/bold white on bright_black]",
 }
 
 
@@ -106,9 +116,9 @@ def _render_terminal_summary(report: AuditReport) -> None:
     findings_table.add_column("Remediation", max_width=46)
 
     for finding in sorted_findings:
-        style = _SEVERITY_STYLES.get(finding.severity, "white")
+        badge = _SEVERITY_BADGES.get(finding.severity, finding.severity.value)
         findings_table.add_row(
-            f"[{style}]{finding.severity.value}[/{style}]",
+            badge,
             finding.category,
             finding.target,
             finding.title,
@@ -142,6 +152,99 @@ def init_config() -> None:
     )
 
 
+def _prompt_interactive_remediation(
+    report: AuditReport,
+    cfg: dict[str, Any],
+    config_path: Path,
+    output_dir: Path,
+    export_pdf: bool,
+    html_path: Path,
+) -> Path:
+    """Display an interactive fix menu after report generation and regenerate report if fixes run."""
+    fixable = get_fixable_findings(report)
+    if not fixable:
+        return html_path
+
+    menu_table = Table(
+        title=f"Available Safe Remediations ({len(fixable)})",
+        show_lines=True,
+        header_style="bold cyan",
+    )
+    menu_table.add_column("#", width=4, justify="right", style="bold")
+    menu_table.add_column("Severity", width=12, no_wrap=True)
+    menu_table.add_column("Target", max_width=28)
+    menu_table.add_column("Proposed Safe Fix", max_width=52)
+
+    for idx, item in enumerate(fixable, start=1):
+        badge = _SEVERITY_BADGES.get(item.severity, item.severity.value)
+        menu_table.add_row(
+            str(idx),
+            badge,
+            item.target,
+            item.fix_description or item.remediation,
+        )
+
+    console.print()
+    console.print(menu_table)
+    console.print(
+        "\n[bold][A][/bold] Fix all safe issues automatically\n"
+        "[bold][S][/bold] Select specific issues to fix (e.g. 1,3)\n"
+        "[bold][N][/bold] Skip fixes and open report"
+    )
+
+    choice = typer.prompt("Choose an option [A/S/N]", default="N").strip().upper()
+    if choice not in ("A", "S"):
+        return html_path
+
+    selected: list[Finding] = fixable
+    if choice == "S":
+        raw_indices = typer.prompt("Enter issue numbers separated by commas (e.g. 1,3)", default="").strip()
+        chosen_indices: list[int] = []
+        for token in raw_indices.split(","):
+            token = token.strip()
+            if token.isdigit():
+                num = int(token)
+                if 1 <= num <= len(fixable) and num not in chosen_indices:
+                    chosen_indices.append(num)
+        if not chosen_indices:
+            console.print("[yellow]No valid issue numbers selected; skipping remediation.[/yellow]")
+            return html_path
+        selected = [fixable[i - 1] for i in chosen_indices]
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+        transient=True,
+    ) as progress:
+        task_id = progress.add_task(f"Applying {len(selected)} selected remediation(s)...", total=None)
+        try:
+            run_remediation(
+                report=report,
+                config=cfg,
+                config_path=config_path,
+                output_dir=output_dir,
+                dry_run=False,
+                selected_findings=selected,
+                auto_approve=True,
+                console=console,
+            )
+        finally:
+            progress.remove_task(task_id)
+
+    updated_html, updated_pdf = generate_report(
+        report=report,
+        output_dir=output_dir,
+        generate_pdf=export_pdf,
+        console=console,
+    )
+    console.print()
+    console.print(f"[bold green]Updated HTML report saved:[/bold green] {updated_html.resolve()}")
+    if updated_pdf is not None:
+        console.print(f"[bold green]Updated PDF report saved:[/bold green]  {updated_pdf.resolve()}")
+    return updated_html
+
+
 @app.command("scan")
 def scan(
     config: Path = typer.Option(
@@ -161,6 +264,21 @@ def scan(
         "-o",
         help="Override output directory for generated reports.",
     ),
+    fix: bool = typer.Option(
+        False,
+        "--fix",
+        help="Interactively review and apply safe automated fixes for detected issues.",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Preview safe remediation commands/API calls without making changes.",
+    ),
+    non_interactive: bool = typer.Option(
+        False,
+        "--non-interactive",
+        help="Skip the interactive remediation menu after report generation.",
+    ),
 ) -> Path:
     """Run enabled security audit modules and generate HTML/PDF reports."""
     cfg = _load_config(config)
@@ -174,9 +292,9 @@ def scan(
 
     console.print(
         Panel.fit(
-            f"[bold cyan]AegisInfra Security Audit[/bold cyan]\n"
-            f"Host: [bold]{hostname}[/bold] | Config: [bold]{config}[/bold]",
-            border_style="cyan",
+            f"[bold cyan]AEGISINFRA[/bold cyan] [dim]| Infrastructure Security Auditor[/dim]\n"
+            f"Target Host: [bold white]{hostname}[/bold white]  •  Config: [bold white]{config}[/bold white]",
+            border_style="bright_cyan",
         )
     )
 
@@ -216,6 +334,43 @@ def scan(
     console.print(f"[bold green]HTML report saved:[/bold green] {html_path.resolve()}")
     if pdf_path is not None:
         console.print(f"[bold green]PDF report saved:[/bold green]  {pdf_path.resolve()}")
+
+    is_interactive = (
+        sys.stdin is not None
+        and sys.stdin.isatty()
+        and not os.environ.get("CI")
+        and not non_interactive
+    )
+
+    if fix or dry_run:
+        run_remediation(
+            report=report,
+            config=cfg,
+            config_path=config,
+            output_dir=output_dir,
+            dry_run=dry_run,
+            console=console,
+        )
+        html_path, pdf_path = generate_report(
+            report=report,
+            output_dir=output_dir,
+            generate_pdf=export_pdf,
+            console=console,
+        )
+        console.print()
+        console.print(f"[bold green]Updated HTML report saved:[/bold green] {html_path.resolve()}")
+        if pdf_path is not None:
+            console.print(f"[bold green]Updated PDF report saved:[/bold green]  {pdf_path.resolve()}")
+    elif is_interactive:
+        html_path = _prompt_interactive_remediation(
+            report=report,
+            cfg=cfg,
+            config_path=config,
+            output_dir=output_dir,
+            export_pdf=export_pdf,
+            html_path=html_path,
+        )
+
     return html_path
 
 

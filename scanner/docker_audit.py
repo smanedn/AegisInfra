@@ -69,6 +69,8 @@ def _audit_container(container: Any) -> list[Finding]:
                     "Remove --privileged and grant only the minimal Linux capabilities "
                     "needed via --cap-drop=ALL and --cap-add=<CAP>."
                 ),
+                fix_id="docker.privileged",
+                fix_description="Generate hardened docker-compose.override.yml disabling privileged mode",
             )
         )
 
@@ -89,6 +91,8 @@ def _audit_container(container: Any) -> list[Finding]:
                         f"Remove the bind mount for '{src}' or use a least-privilege "
                         "Docker socket proxy / read-only scoped volume."
                     ),
+                    fix_id="docker.sensitive_mount",
+                    fix_description=f"Generate hardened docker-compose.override.yml note for '{src}'",
                 )
             )
 
@@ -120,6 +124,8 @@ def _audit_container(container: Any) -> list[Finding]:
                     "Bind published ports explicitly to 127.0.0.1 (e.g., 127.0.0.1:8080:80) "
                     "and front services with a TLS reverse proxy or VPN."
                 ),
+                fix_id="docker.wildcard_port",
+                fix_description="Generate docker-compose.override.yml rebinding ports to 127.0.0.1",
             )
         )
 
@@ -234,6 +240,8 @@ def _audit_images(client: Any, max_image_age_days: int) -> list[Finding]:
                         ),
                         severity=Severity.LOW,
                         remediation="Rebuild or pull a newer base image and redeploy dependent containers.",
+                        fix_id="docker.prune_images",
+                        fix_description="Prune unused/dangling Docker images (docker image prune)",
                     )
                 )
 

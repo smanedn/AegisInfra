@@ -1,4 +1,13 @@
-# AegisInfra
+<p align="center">
+  <img src="assets/logo.svg" alt="AegisInfra Logo" width="420" />
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11+" />
+  <img src="https://img.shields.io/badge/CLI-Typer%20%26%20Rich-0f172a?style=for-the-badge" alt="Typer & Rich" />
+  <img src="https://img.shields.io/badge/Audits-Network%20%7C%20Docker%20%7C%20Proxmox%20VE-2563eb?style=for-the-badge" alt="Audits" />
+  <img src="https://img.shields.io/badge/Reports-Offline%20HTML%20%26%20PDF-0ea5e9?style=for-the-badge" alt="Reports" />
+</p>
 
 **AegisInfra** is a production-ready Python CLI security auditing tool designed for self-hosted infrastructures, homelabs, and small server environments. It audits network exposure, Docker daemon/container posture, and Proxmox VE cluster/guest configurations, then outputs a color-coded terminal summary alongside a standalone, offline-ready HTML report (with optional PDF export).
 
@@ -32,6 +41,8 @@
 
 ```text
 AegisInfra/
+├── assets/
+│   └── logo.svg             # Project SVG emblem & banner
 ├── AegisInfra.bat           # Windows one-click launcher
 ├── start.py                 # Unified launcher (auto-setup, checks, tests, & scan)
 ├── main.py                  # Typer CLI entry point & Rich terminal UI
@@ -47,6 +58,9 @@ AegisInfra/
 │   ├── network.py           # Concurrent TCP port scanner & banner grabber
 │   ├── docker_audit.py      # Docker container & image security auditor
 │   └── proxmox_audit.py     # Proxmox VE cluster, node, VM & LXC auditor
+├── remediator/
+│   ├── __init__.py
+│   └── fixer.py             # Interactive & dry-run auto-remediation engine
 ├── reporter/
 │   ├── __init__.py
 │   ├── generator.py         # Jinja2 HTML renderer & optional WeasyPrint PDF exporter
@@ -97,6 +111,8 @@ python start.py
 - `--check-only` — Run auto-setup, self-checks, and `pytest` without running the live audit.
 - `--pdf` — Export a matching `.pdf` report alongside the `.html` report.
 - `--no-browser` — Do not automatically open the generated HTML report in the default browser.
+- `--fix` — Interactively review and apply safe automated fixes after scanning (always prompts for confirmation).
+- `--dry-run` — Preview safe remediation commands and API calls without modifying anything.
 
 > **Tip:** After the first run creates `config.yaml`, edit it with your target IPs/CIDRs, Docker socket URL, and optional Proxmox VE API token credentials, then re-run `python start.py`.
 

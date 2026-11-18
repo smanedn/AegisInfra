@@ -35,6 +35,18 @@ class Finding:
     description: str
     severity: Severity
     remediation: str
+    fix_id: str | None = None
+    fix_description: str | None = None
+
+
+@dataclass(slots=True)
+class RemediationLog:
+    """Records a remediation action (applied, previewed, skipped, or failed)."""
+
+    timestamp: str
+    target: str
+    action: str
+    status: str
 
 
 @dataclass(slots=True)
@@ -44,6 +56,7 @@ class AuditReport:
     timestamp: str
     hostname: str
     findings: list[Finding] = field(default_factory=list)
+    remediations: list[RemediationLog] = field(default_factory=list)
 
     def add_finding(self, finding: Finding) -> None:
         """Append a security finding to the report."""

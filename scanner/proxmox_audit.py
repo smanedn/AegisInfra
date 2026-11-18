@@ -46,6 +46,8 @@ def _audit_cluster_firewall(proxmox: Any, console: Console) -> list[Finding]:
                         "Enable the Datacenter firewall under Datacenter -> Firewall -> "
                         "Options and define default drop/allow policies."
                     ),
+                    fix_id="proxmox.cluster_firewall",
+                    fix_description="Enable Proxmox Datacenter firewall via API",
                 )
             )
     except Exception as exc:
@@ -114,6 +116,8 @@ def _audit_node_firewall(proxmox: Any, node_name: str, console: Console) -> list
                         f"Enable the firewall under Node '{node_name}' -> Firewall -> Options "
                         "and allowlist management ports (8006, 22) from trusted IPs only."
                     ),
+                    fix_id="proxmox.node_firewall",
+                    fix_description=f"Enable Proxmox Node '{node_name}' firewall via API",
                 )
             )
     except Exception as exc:
@@ -155,8 +159,9 @@ def _audit_lxc_containers(proxmox: Any, node_name: str, console: Console) -> lis
                     ),
                     severity=Severity.HIGH,
                     remediation=(
-                        "Back up the container and restore it as an unprivileged LXC "
-                        "container (unprivileged=1) to isolate container root from host root."
+                        f"Manual remediation required (auto-conversion disabled to preserve file ownership): "
+                        f"1) vzdump {vmid} --mode stop --compress zstd; "
+                        f"2) pct restore {vmid} /var/lib/vz/dump/vzdump-lxc-{vmid}-*.tar.zst --unprivileged 1 --force."
                     ),
                 )
             )
@@ -198,6 +203,8 @@ def _audit_lxc_containers(proxmox: Any, node_name: str, console: Console) -> lis
                             f"Enable the Firewall checkbox on {iface} in Proxmox UI or add "
                             "'firewall=1' to the interface configuration."
                         ),
+                        fix_id="proxmox.guest_firewall",
+                        fix_description=f"Enable firewall=1 on {target} interface {iface} via Proxmox API",
                     )
                 )
 
@@ -240,6 +247,8 @@ def _audit_qemu_vms(proxmox: Any, node_name: str, console: Console) -> list[Find
                             f"Enable the Firewall option on {iface} in Proxmox UI or set "
                             "'firewall=1' in the VM hardware network configuration."
                         ),
+                        fix_id="proxmox.guest_firewall",
+                        fix_description=f"Enable firewall=1 on {target} interface {iface} via Proxmox API",
                     )
                 )
 

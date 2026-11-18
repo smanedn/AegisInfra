@@ -145,12 +145,28 @@ def start(
         "--no-browser",
         help="Do not automatically open the generated HTML report in the default browser.",
     ),
+    fix: bool = typer.Option(
+        False,
+        "--fix",
+        help="Interactively review and apply safe automated fixes after scanning.",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Preview safe remediation commands/API calls without making changes.",
+    ),
+    non_interactive: bool = typer.Option(
+        False,
+        "--non-interactive",
+        help="Skip the interactive remediation menu after report generation.",
+    ),
 ) -> None:
     """Auto-setup config, verify environment & tests, and run the AegisInfra audit."""
     console.print(
         Panel.fit(
-            "[bold cyan]AegisInfra Unified Launcher[/bold cyan]",
-            border_style="cyan",
+            "[bold cyan]AEGISINFRA[/bold cyan] [dim]| Unified Security Launcher[/dim]\n"
+            "[dim]Auto-Setup • Self-Checks • Test Suite • Live Audit[/dim]",
+            border_style="bright_cyan",
         )
     )
 
@@ -165,7 +181,14 @@ def start(
         raise typer.Exit(code=0)
 
     console.print("[bold cyan]Step 2/2: Executing live infrastructure audit...[/bold cyan]\n")
-    html_path = run_real_scan(config=config, pdf=pdf, output=None)
+    html_path = run_real_scan(
+        config=config,
+        pdf=pdf,
+        output=None,
+        fix=fix,
+        dry_run=dry_run,
+        non_interactive=non_interactive,
+    )
 
     if not no_browser and html_path is not None and html_path.exists():
         try:
