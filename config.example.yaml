@@ -1,0 +1,68 @@
+# AegisInfra Configuration File
+# Copy this file to config.yaml (or run: python main.py init-config) and adjust for your environment.
+
+general:
+  # Directory where HTML and PDF audit reports will be saved
+  output_dir: "./reports"
+  # Set to true to automatically export a PDF alongside the HTML report (requires WeasyPrint system libs)
+  generate_pdf: false
+
+network:
+  enabled: true
+  # List of IP addresses or CIDR subnets to scan
+  targets:
+    - "127.0.0.1"
+    # - "192.0.2.0/24"
+  # TCP ports to probe on each target
+  ports:
+    - 21     # FTP
+    - 22     # SSH
+    - 23     # Telnet
+    - 25     # SMTP
+    - 53     # DNS
+    - 80     # HTTP
+    - 111    # RPCbind
+    - 139    # NetBIOS
+    - 443    # HTTPS
+    - 445    # SMB
+    - 2375   # Docker Daemon (unencrypted)
+    - 2376   # Docker Daemon (TLS)
+    - 3000   # Common Web/App Port
+    - 3306   # MySQL / MariaDB
+    - 5432   # PostgreSQL
+    - 6379   # Redis
+    - 8006   # Proxmox VE Web UI
+    - 8080   # HTTP Alternate
+    - 8443   # HTTPS Alternate
+    - 9000   # Portainer / App Port
+    - 9090   # Prometheus / Cockpit
+    - 27017  # MongoDB
+  # Socket connection timeout in seconds
+  timeout: 1.5
+  # Maximum concurrent threads for scanning
+  max_workers: 50
+
+docker:
+  enabled: true
+  # Unix socket (Linux/macOS): "unix:///var/run/docker.sock"
+  # Windows named pipe: "npipe:////./pipe/docker_engine"
+  # Leave empty to use environment defaults (DOCKER_HOST)
+  socket_url: "unix:///var/run/docker.sock"
+  # Set to true to also audit stopped/exited containers
+  include_stopped: false
+  # Flag images built more than this many days ago
+  max_image_age_days: 90
+
+proxmox:
+  enabled: false
+  # Proxmox VE node IP or hostname
+  host: "192.0.2.10"
+  port: 8006
+  # User in format username@realm (e.g., audit@pve or root@pam)
+  user: "audit@pve"
+  # API Token ID (without the user@realm! prefix)
+  token_name: "aegis-token"
+  # API Token secret UUID
+  token_value: "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+  # Set to true if using a valid trusted TLS certificate
+  verify_ssl: false
