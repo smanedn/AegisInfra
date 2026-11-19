@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 
+__version__ = "1.0.0"
+
 
 class Severity(str, Enum):
     """Security finding severity levels ordered from highest to lowest risk."""

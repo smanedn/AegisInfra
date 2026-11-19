@@ -18,7 +18,7 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from models import AuditReport, Finding, Severity
+from models import AuditReport, Finding, Severity, __version__
 from remediator import get_fixable_findings, run_remediation
 from reporter import generate_report
 from scanner import run_docker_audit, run_network_scan, run_proxmox_audit
@@ -30,6 +30,26 @@ app = typer.Typer(
     pretty_exceptions_show_locals=False,
 )
 console = Console()
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        console.print(f"AegisInfra v{__version__}")
+        raise typer.Exit()
+
+
+@app.callback()
+def _cli_root(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        "-V",
+        callback=_version_callback,
+        is_eager=True,
+        help="Show the AegisInfra version and exit.",
+    ),
+) -> None:
+    """AegisInfra CLI root options."""
 
 _SEVERITY_STYLES: dict[Severity, str] = {
     Severity.CRITICAL: "bold red",

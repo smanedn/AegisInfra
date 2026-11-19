@@ -23,6 +23,7 @@ from healthcheck import (
     _run_mocked_e2e,
 )
 from main import _load_config, scan as run_real_scan
+from models import __version__
 
 _BASE_DIR = Path(__file__).resolve().parent
 console = Console()
@@ -117,8 +118,22 @@ def _pause_if_interactive() -> None:
             pass
 
 
+def _version_callback(value: bool) -> None:
+    if value:
+        console.print(f"AegisInfra v{__version__}")
+        raise typer.Exit()
+
+
 @app.command()
 def start(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        "-V",
+        callback=_version_callback,
+        is_eager=True,
+        help="Show the AegisInfra version and exit.",
+    ),
     config: Path = typer.Option(
         Path("config.yaml"),
         "--config",
@@ -208,6 +223,6 @@ if __name__ == "__main__":
         console.print(f"[bold red]Unexpected error:[/bold red] {exc}")
         exit_code = 1
     finally:
-        if "--help" not in sys.argv:
+        if not any(flag in sys.argv for flag in ("--help", "--version", "-V")):
             _pause_if_interactive()
     sys.exit(exit_code)
